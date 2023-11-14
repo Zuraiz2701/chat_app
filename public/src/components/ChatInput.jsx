@@ -1,27 +1,76 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BsEmojiSmileFill } from "react-icons/bs";
-import { IoMdSend } from "react-icons/io";
+import { IoMdSend, IoIosMic, IoIosMicOff } from "react-icons/io";
 import styled from "styled-components";
 import Picker from "emoji-picker-react";
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function ChatInput({ handleSendMsg }) {
-  const [msg, setMsg] = useState("");
+  const [typedMsg, setTypedMsg] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
+  const { transcript, listening, browserSupportsSpeechRecognition, resetTranscript } = useSpeechRecognition();
+
+  if (!browserSupportsSpeechRecognition) {
+    alert(`Browser doesn't support speech recognition.`);
+  }
+  const toastOptions = {
+    position: "top-right",
+    autoClose: 8000,
+    pauseOnHover: true,
+    draggable: true,
+    theme: "dark",
+  };
+
   const handleEmojiPickerhideShow = () => {
     setShowEmojiPicker(!showEmojiPicker);
   };
 
   const handleEmojiClick = (event, emojiObject) => {
-    let message = msg;
-    message += emojiObject.emoji;
-    setMsg(message);
+    setTypedMsg(prevMsg => prevMsg + emojiObject.emoji);
   };
 
-  const sendChat = (event) => {
+  const startListening = () => {
+    setTypedMsg(""); // Clear the input when starting to listen
+    SpeechRecognition.startListening({ continuous: true, language: 'en-IN' });
+  };
+
+  const stopListening = () => {
+    SpeechRecognition.stopListening();
+  };
+
+  const handleSubmit = (event) => {
     event.preventDefault();
-    if (msg.length > 0) {
-      handleSendMsg(msg);
-      setMsg("");
+    if (listening) {
+      setShowWarning(true); // Show warning message if listening is active
+      toast.error("First Stop Recording then send message.", toastOptions);
+    } else {
+      setShowWarning(false)
+      const finalMsg = typedMsg || transcript;
+      if (finalMsg.trim() !== "") {
+        handleSendMsg(finalMsg);
+        setTypedMsg("");
+        // Clear the transcript after sending the message
+        resetTranscript();
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (listening) {
+      setTypedMsg(transcript)
+    }
+  }, [transcript, listening])
+
+  const handleInputChange = (e) => {
+    const inputValue = e.target.value;
+    setTypedMsg(inputValue);
+  
+    // Manually reset transcript if input is empty
+    if (inputValue === "") {
+      resetTranscript();
     }
   };
 
@@ -29,20 +78,25 @@ export default function ChatInput({ handleSendMsg }) {
     <Container>
       <div className="button-container">
         <div className="emoji">
-          <BsEmojiSmileFill onClick={handleEmojiPickerhideShow} />
+          <BsEmojiSmileFill style={{color:"#25D366"}} onClick={handleEmojiPickerhideShow} />
           {showEmojiPicker && <Picker onEmojiClick={handleEmojiClick} />}
         </div>
       </div>
-      <form className="input-container" onSubmit={(event) => sendChat(event)}>
+      <form className="input-container" onSubmit={handleSubmit}>
         <input
           type="text"
           placeholder="type your message here"
-          onChange={(e) => setMsg(e.target.value)}
-          value={msg}
+          onChange={handleInputChange}
+          value={typedMsg} // Display the typed message in the input field
         />
-        <button type="submit">
-          <IoMdSend />
-        </button>
+        <div className="button-container">
+          <button type="submit">
+            <IoMdSend />
+          </button>
+          {!listening ? <button className="btn" type="button" onClick={startListening}><IoIosMic /></button> :
+            <button className="btn" type="button" onClick={stopListening}><IoIosMicOff /></button>}
+        </div>
+        <ToastContainer />
       </form>
     </Container>
   );
@@ -52,7 +106,7 @@ const Container = styled.div`
   display: grid;
   align-items: center;
   grid-template-columns: 5% 95%;
-  background-color: #080420;
+  background-color: #dcf8c6;
   padding: 0 2rem;
   @media screen and (min-width: 720px) and (max-width: 1080px) {
     padding: 0 1rem;
@@ -62,7 +116,9 @@ const Container = styled.div`
     display: flex;
     align-items: center;
     color: white;
-    gap: 1rem;
+    gap: 2px;
+    position : relative ;
+    margin-right: -32px;
     .emoji {
       position: relative;
       svg {
@@ -100,20 +156,22 @@ const Container = styled.div`
   }
   .input-container {
     width: 100%;
-    border-radius: 2rem;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     gap: 2rem;
-    background-color: #ffffff34;
+    background-color: #bbbbbb	;
+    color:white;
     input {
-      width: 90%;
+      width: 120%;
       height: 60%;
       background-color: transparent;
       color: white;
       border: none;
       padding-left: 1rem;
       font-size: 1.2rem;
-
+      overflow: hidden;
+  
       &::selection {
         background-color: #9a86f3;
       }
@@ -123,12 +181,13 @@ const Container = styled.div`
     }
     button {
       padding: 0.3rem 2rem;
-      border-radius: 2rem;
+      border-radius: 8px;
       display: flex;
       justify-content: center;
       align-items: center;
-      background-color: #9a86f3;
+      background-color: #25d366;
       border: none;
+      cursor: pointer;
       @media screen and (min-width: 720px) and (max-width: 1080px) {
         padding: 0.3rem 1rem;
         svg {
@@ -140,5 +199,5 @@ const Container = styled.div`
         color: white;
       }
     }
-  }
+  }  
 `;

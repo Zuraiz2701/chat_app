@@ -10,6 +10,15 @@ export default function ChatContainer({ currentChat, socket }) {
   const [messages, setMessages] = useState([]);
   const scrollRef = useRef();
   const [arrivalMessage, setArrivalMessage] = useState(null);
+  const [speechState, setSpeechState] = useState("stopped");
+  const [activeMessage, setActiveMessage] = useState(null);
+  const utteranceRef = useRef(new SpeechSynthesisUtterance());
+
+  useEffect(() => {
+    utteranceRef.current.addEventListener('end', () => {
+      setSpeechState('stopped');
+    });
+  }, []);
 
   useEffect(async () => {
     const data = await JSON.parse(
@@ -69,6 +78,44 @@ export default function ChatContainer({ currentChat, socket }) {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const playText = (text, e) => {
+  e.preventDefault();
+
+  if (speechState === "playing" && activeMessage !== text) {
+    alert("Please stop the current text before playing another.");
+    return;
+  }
+
+  if (speechState === "paused") {
+    stopText(e);
+  }
+
+  utteranceRef.current.text = text;
+  utteranceRef.current.lang = "en-IN"; // Set language to en-IN
+  speechSynthesis.speak(utteranceRef.current);
+  setActiveMessage(text);
+  setSpeechState("playing");
+};
+  
+  const pauseText = (e) => {
+    e.preventDefault()
+    speechSynthesis.pause();
+    setSpeechState("paused");
+  };
+
+  const resumeText = (e) => {
+    e.preventDefault()
+    speechSynthesis.resume();
+    setSpeechState("playing");
+  };
+
+  const stopText = (e) => {
+    e.preventDefault()
+    speechSynthesis.cancel();
+    setSpeechState("stopped");
+    setActiveMessage(null);
+  };
+
   return (
     <Container>
       <div className="chat-header">
@@ -90,13 +137,30 @@ export default function ChatContainer({ currentChat, socket }) {
           return (
             <div ref={scrollRef} key={uuidv4()}>
               <div
-                className={`message ${
-                  message.fromSelf ? "sended" : "recieved"
-                }`}
+                className={`message ${message.fromSelf ? "sended" : "recieved"
+                  }`}
               >
                 <div className="content ">
                   <p>{message.message}</p>
+                  {speechState === "playing" && activeMessage === message.message ? (
+                    <>
+                      <button className="btns" onClick={pauseText}><i class="fa-solid fa-pause"></i></button>
+                      <button className="btns stop" onClick={stopText}><i class="fa-solid fa-stop"></i></button>
+                    </>
+                  ) : (
+                    speechState === "paused" && activeMessage === message.message ? (
+                      <button className="btns" onClick={resumeText}>
+                      <i class="fa-solid fa-play"></i></button>
+                    ) : (
+                      (speechState === "stopped" || speechState === "paused") && (
+                        <button className="btns" onClick={(e) => playText(message.message,e)}>
+                          <i class="fa-solid fa-play"></i>
+                        </button>
+                      )
+                    )
+                  )}
                 </div>
+
               </div>
             </div>
           );
@@ -114,6 +178,19 @@ const Container = styled.div`
   overflow: hidden;
   @media screen and (min-width: 720px) and (max-width: 1080px) {
     grid-template-rows: 15% 70% 15%;
+  }
+  .btns{
+    position : relative ;
+    margin-top : 8px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+  }
+  .stop{
+    position : relative ;
+    margin-left : 5px;
   }
   .chat-header {
     display: flex;
@@ -168,13 +245,15 @@ const Container = styled.div`
     .sended {
       justify-content: flex-end;
       .content {
-        background-color: #4f04ff21;
+        background-color: #128c7e;
+        color:white;
       }
     }
     .recieved {
       justify-content: flex-start;
       .content {
-        background-color: #9900ff20;
+        background-color: darkgrey;
+        color: white;
       }
     }
   }

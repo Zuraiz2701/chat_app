@@ -9,9 +9,10 @@ require("dotenv").config();
 
 app.use(cors());
 app.use(express.json());
-
+const PORT = 5000;
+const MONGO_URL="mongodb://127.0.0.1:27017/chat"
 mongoose
-  .connect(process.env.MONGO_URL, {
+  .connect(MONGO_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -25,8 +26,8 @@ mongoose
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 
-const server = app.listen(process.env.PORT, () =>
-  console.log(`Server started on ${process.env.PORT}`)
+const server = app.listen(PORT, () =>
+  console.log(`Server started on ${PORT}`)
 );
 const io = socket(server, {
   cors: {
